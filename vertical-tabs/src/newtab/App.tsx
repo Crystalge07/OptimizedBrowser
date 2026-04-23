@@ -498,7 +498,7 @@ export default function App() {
             <div className="newtab-bottom-section">
               <div className="newtab-bottom-section-header">
                 <select
-                  className="newtab-bottom-section-mode-select"
+                  className="newtab-bottom-section-mode-select newtab-bottom-section-title"
                   value={secondColumnMode}
                   onChange={(e) => setSecondColumnMode(e.target.value as SecondColumnMode)}
                   aria-label="Second column mode"
