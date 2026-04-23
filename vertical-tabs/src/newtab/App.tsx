@@ -53,6 +53,7 @@ function isUrl(query: string): boolean {
 export default function App() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [frequentResults, setFrequentResults] = useState<SearchResult[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(true);
@@ -216,19 +217,24 @@ export default function App() {
     secondColumnMode === 'recent_tabs' ? 'Recent Tabs' :
     'Custom';
 
+  const allResults = [...results, ...frequentResults];
+
   const search = useCallback(async (q: string) => {
     const trimmed = q.trim().toLowerCase();
     if (!trimmed) {
       setResults([]);
+      setFrequentResults([]);
       return;
     }
 
     setIsSearching(true);
     try {
-      const [tabs, bookmarks, historyItems] = await Promise.all([
+      const [tabs, bookmarks, historyItems, frequentHistoryItems, topSites] = await Promise.all([
         chrome.tabs.query({}),
         chrome.bookmarks.search(trimmed),
         chrome.history.search({ text: trimmed, maxResults: 50, startTime: 0 }),
+        chrome.history.search({ text: '', maxResults: 200, startTime: 0 }),
+        chrome.topSites.get().catch(() => []),
       ]);
 
       const seen = new Set<string>();
@@ -242,11 +248,12 @@ export default function App() {
         const title = (tab.title || tab.url || 'Untitled').toLowerCase();
         const url = (tab.url || '').toLowerCase();
         if (title.includes(trimmed) || url.includes(trimmed)) {
+          const finalUrl = tab.url!;
           out.push({
             id: key,
             type: 'tab',
             title: tab.title || tab.url || 'Untitled',
-            url: tab.url!,
+            url: finalUrl,
             favIconUrl: tab.favIconUrl,
           });
         }
@@ -280,11 +287,76 @@ export default function App() {
         });
       }
 
-      setResults(out.slice(0, MAX_RESULTS));
+      const primaryResults = out.slice(0, MAX_RESULTS);
+      const shownUrls = new Set(primaryResults.map(item => item.url.toLowerCase()));
+
+      const filteredFrequentHistory = frequentHistoryItems
+        .filter(h => {
+          if (!h.url || h.url.startsWith('chrome://')) return false;
+          const normalizedUrl = h.url.toLowerCase();
+          if (shownUrls.has(normalizedUrl)) return false;
+          const title = (h.title || '').toLowerCase();
+          const url = normalizedUrl;
+          return title.includes(trimmed) || url.includes(trimmed);
+        })
+        .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
+        .slice(0, 6)
+        .map<SearchResult>(h => ({
+          id: `freq:${h.id}:${h.url}`,
+          type: 'history',
+          title: h.title || h.url || 'Untitled',
+          url: h.url || '',
+          favIconUrl: undefined,
+        }))
+        .filter(h => !!h.url);
+
+      let frequent = filteredFrequentHistory;
+
+      // Fallback for profile/history-restricted cases: use Chrome top sites.
+      if (frequent.length === 0 && Array.isArray(topSites) && topSites.length > 0) {
+        frequent = topSites
+          .filter(site => {
+            if (!site.url || shownUrls.has(site.url.toLowerCase())) return false;
+            const title = (site.title || '').toLowerCase();
+            const url = site.url.toLowerCase();
+            return title.includes(trimmed) || url.includes(trimmed);
+          })
+          .slice(0, 6)
+          .map<SearchResult>((site, index) => ({
+            id: `freq-top:${index}:${site.url}`,
+            type: 'history',
+            title: site.title || site.url || 'Untitled',
+            url: site.url || '',
+          }))
+          .filter(item => !!item.url);
+      }
+
+      // Last-resort fallback: show top visited history entries even if they do not match text.
+      if (frequent.length === 0) {
+        frequent = frequentHistoryItems
+          .filter(h => {
+            if (!h.url || h.url.startsWith('chrome://')) return false;
+            return !shownUrls.has(h.url.toLowerCase());
+          })
+          .sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0))
+          .slice(0, 6)
+          .map<SearchResult>(h => ({
+            id: `freq-fallback:${h.id}:${h.url}`,
+            type: 'history',
+            title: h.title || h.url || 'Untitled',
+            url: h.url || '',
+            favIconUrl: undefined,
+          }))
+          .filter(item => !!item.url);
+      }
+
+      setResults(primaryResults);
+      setFrequentResults(frequent);
       setSelectedIndex(0);
     } catch (e) {
       console.error('[NewTab] Search error:', e);
       setResults([]);
+      setFrequentResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -297,6 +369,7 @@ export default function App() {
         loadDefaultResults();
       } else {
         setResults([]);
+        setFrequentResults([]);
         setPinnedTabs([]);
       }
       setSelectedIndex(0);
@@ -344,9 +417,9 @@ export default function App() {
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    const top = results[selectedIndex] ?? null;
+    const top = allResults[selectedIndex] ?? null;
     goTo(top);
-  }, [results, selectedIndex, goTo]);
+  }, [allResults, selectedIndex, goTo]);
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
@@ -396,14 +469,14 @@ export default function App() {
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(i => (i + 1) % Math.max(1, results.length));
+      setSelectedIndex(i => (i + 1) % Math.max(1, allResults.length));
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(i => (i - 1 + results.length) % Math.max(1, results.length));
+      setSelectedIndex(i => (i - 1 + allResults.length) % Math.max(1, allResults.length));
     }
-  }, [results.length]);
+  }, [allResults.length]);
 
   return (
     <div className="newtab-root">
@@ -451,7 +524,7 @@ export default function App() {
 
       <form onSubmit={handleSubmit} className="newtab-form">
         <div className="newtab-input-wrap">
-          {results.length > 0 && (
+          {allResults.length > 0 && (
             <ul className="newtab-results" role="listbox">
               {results.map((r, i) => (
                 <li
@@ -475,6 +548,30 @@ export default function App() {
                   </div>
                 </li>
               ))}
+              {results.length > 0 && frequentResults.length > 0 && (
+                <li className="newtab-results-divider" role="presentation">
+                  <span className="newtab-results-divider-label">Frequent</span>
+                </li>
+              )}
+              {frequentResults.map((r, i) => {
+                const index = results.length + i;
+                return (
+                  <li
+                    key={r.id}
+                    role="option"
+                    aria-selected={index === selectedIndex}
+                    className={`newtab-result ${index === selectedIndex ? 'newtab-result--selected' : ''}`}
+                    onClick={() => goTo(r)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    <span className="newtab-result-icon-placeholder">↗</span>
+                    <div className="newtab-result-content">
+                      <span className="newtab-result-title">{r.title || r.url}</span>
+                      <span className="newtab-result-url">{r.url}</span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
           <input
@@ -493,9 +590,6 @@ export default function App() {
           />
         </div>
 
-        {query.trim() && results.length === 0 && !isSearching && (
-          <p className="newtab-hint">Press Enter to search Google</p>
-        )}
       </form>
 
       {isFocused && !query.trim() && pinnedTabs.length > 0 && (
