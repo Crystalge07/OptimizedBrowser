@@ -16,6 +16,16 @@ interface DownloadItem {
   url: string;
 }
 
+type SecondColumnMode = 'recent_downloads' | 'frequent_tabs' | 'recent_tabs' | 'custom';
+
+interface SecondColumnItem {
+  id: string;
+  title: string;
+  subtitle?: string;
+  icon: string;
+  onClick: () => void;
+}
+
 interface BookmarkItem {
   id: string;
   title: string;
@@ -33,6 +43,7 @@ const DEBOUNCE_MS = 80;
 const MAX_RESULTS = 8;
 const HIGHLIGHT_ITEMS = 4;
 const BOTTOM_SECTION_ITEMS = 8;
+const SECOND_COLUMN_MODE_KEY = 'newtab-second-column-mode';
 
 function isUrl(query: string): boolean {
   return /^(https?:\/\/|www\.)/i.test(query) ||
@@ -47,7 +58,19 @@ export default function App() {
   const [isFocused, setIsFocused] = useState(true);
   const [pinnedTabs, setPinnedTabs] = useState<PinnedTab[]>([]);
   const [bottomBookmarks, setBottomBookmarks] = useState<BookmarkItem[]>([]);
-  const [bottomDownloads, setBottomDownloads] = useState<DownloadItem[]>([]);
+  const [secondColumnMode, setSecondColumnMode] = useState<SecondColumnMode>(() => {
+    const stored = localStorage.getItem(SECOND_COLUMN_MODE_KEY);
+    if (
+      stored === 'recent_downloads' ||
+      stored === 'frequent_tabs' ||
+      stored === 'recent_tabs' ||
+      stored === 'custom'
+    ) {
+      return stored;
+    }
+    return 'recent_downloads';
+  });
+  const [secondColumnItems, setSecondColumnItems] = useState<SecondColumnItem[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryRef = useRef(query);
@@ -82,15 +105,7 @@ export default function App() {
 
   const loadBottomSections = useCallback(async () => {
     try {
-      const [downloadItems, bookmarkTree] = await Promise.all([
-        chrome.downloads.search({ limit: 50 }).then(items =>
-          items
-            .filter(d => d.state === 'complete' && d.filename && d.id !== undefined)
-            .slice(0, BOTTOM_SECTION_ITEMS)
-            .map(d => ({ id: d.id!, filename: d.filename.split(/[/\\]/).pop() ?? d.filename, url: d.finalUrl || d.url || '' }))
-        ),
-        chrome.bookmarks.getTree(),
-      ]);
+      const bookmarkTree = await chrome.bookmarks.getTree();
 
       const flatten = (nodes: Array<{ id?: string; title?: string; url?: string; children?: unknown[] }>): Array<{ id: string; title: string; url: string }> => {
         const out: Array<{ id: string; title: string; url: string }> = [];
@@ -114,17 +129,91 @@ export default function App() {
         }
       }
       bms = bms.slice(0, BOTTOM_SECTION_ITEMS);
-
-      setBottomDownloads(downloadItems);
       setBottomBookmarks(bms);
     } catch (e) {
       console.error('[NewTab] Load bottom sections error:', e);
     }
   }, []);
 
+  const loadSecondColumnItems = useCallback(async () => {
+    try {
+      if (secondColumnMode === 'custom') {
+        setSecondColumnItems([]);
+        return;
+      }
+
+      if (secondColumnMode === 'recent_downloads') {
+        const downloadItems = await chrome.downloads.search({ limit: 50 }).then(items =>
+          items
+            .filter(d => d.state === 'complete' && d.filename && d.id !== undefined)
+            .slice(0, BOTTOM_SECTION_ITEMS)
+            .map<SecondColumnItem>(d => ({
+              id: `dl:${d.id}`,
+              title: d.filename.split(/[/\\]/).pop() ?? d.filename,
+              subtitle: d.finalUrl || d.url || '',
+              icon: '↓',
+              onClick: () => chrome.downloads.open(d.id!),
+            }))
+        );
+        setSecondColumnItems(downloadItems);
+        return;
+      }
+
+      if (secondColumnMode === 'recent_tabs') {
+        const recentTabs = await chrome.tabs.query({});
+        const mapped = recentTabs
+          .filter(t => t.id && t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://'))
+          .sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0))
+          .slice(0, BOTTOM_SECTION_ITEMS)
+          .map<SecondColumnItem>(t => ({
+            id: `tab:${t.id}`,
+            title: t.title || t.url || 'Untitled tab',
+            subtitle: t.url || '',
+            icon: '◉',
+            onClick: () => {
+              const tabId = t.id!;
+              chrome.tabs.update(tabId, { active: true });
+              chrome.tabs.get(tabId).then(tab => chrome.windows.update(tab.windowId!, { focused: true })).catch(() => {});
+            },
+          }));
+        setSecondColumnItems(mapped);
+        return;
+      }
+
+      const topSites = await chrome.topSites.get();
+      const mapped = topSites
+        .filter(site => site.url)
+        .slice(0, BOTTOM_SECTION_ITEMS)
+        .map<SecondColumnItem>((site, index) => ({
+          id: `top:${index}:${site.url}`,
+          title: site.title || site.url,
+          subtitle: site.url,
+          icon: '↗',
+          onClick: () => {
+            window.location.href = site.url;
+          },
+        }));
+      setSecondColumnItems(mapped);
+    } catch (e) {
+      console.error('[NewTab] Load second column error:', e);
+      setSecondColumnItems([]);
+    }
+  }, [secondColumnMode]);
+
   useEffect(() => {
     loadBottomSections();
   }, [loadBottomSections]);
+
+  useEffect(() => {
+    localStorage.setItem(SECOND_COLUMN_MODE_KEY, secondColumnMode);
+    loadSecondColumnItems();
+  }, [secondColumnMode, loadSecondColumnItems]);
+
+  const secondColumnTitle =
+    secondColumnMode === 'recent_downloads' ? 'Recent Downloads' :
+    secondColumnMode === 'frequent_tabs' ? 'Frequent Tabs' :
+    secondColumnMode === 'recent_tabs' ? 'Recent Tabs' :
+    'Custom';
 
   const search = useCallback(async (q: string) => {
     const trimmed = q.trim().toLowerCase();
@@ -384,7 +473,7 @@ export default function App() {
         </div>
       )}
 
-      {(bottomBookmarks.length > 0 || bottomDownloads.length > 0) && (
+      {(bottomBookmarks.length > 0 || secondColumnItems.length > 0 || secondColumnMode === 'custom') && (
         <div className="newtab-bottom-sections">
           {bottomBookmarks.length > 0 && (
             <div className="newtab-bottom-section">
@@ -405,20 +494,35 @@ export default function App() {
               </div>
             </div>
           )}
-          {bottomDownloads.length > 0 && (
+          {(secondColumnItems.length > 0 || secondColumnMode === 'custom') && (
             <div className="newtab-bottom-section">
-              <div className="newtab-bottom-section-title">Recent Downloads</div>
+              <div className="newtab-bottom-section-header">
+                <select
+                  className="newtab-bottom-section-mode-select"
+                  value={secondColumnMode}
+                  onChange={(e) => setSecondColumnMode(e.target.value as SecondColumnMode)}
+                  aria-label="Second column mode"
+                >
+                  <option value="recent_downloads">Recent downloads</option>
+                  <option value="frequent_tabs">Frequent tabs</option>
+                  <option value="recent_tabs">Recent tabs</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
               <div className="newtab-bottom-section-list">
-                {bottomDownloads.map(d => (
+                {secondColumnMode === 'custom' && secondColumnItems.length === 0 && (
+                  <p className="newtab-topsites-empty">Custom mode coming soon.</p>
+                )}
+                {secondColumnItems.map(item => (
                   <button
-                    key={d.id}
+                    key={item.id}
                     type="button"
                     className="newtab-bottom-item"
-                    onClick={() => chrome.downloads.open(d.id)}
-                    title={d.filename}
+                    onClick={item.onClick}
+                    title={item.title}
                   >
-                    <span className="newtab-bottom-item-icon">↓</span>
-                    <span className="newtab-bottom-item-label">{d.filename}</span>
+                    <span className="newtab-bottom-item-icon">{item.icon}</span>
+                    <span className="newtab-bottom-item-label">{item.title}</span>
                   </button>
                 ))}
               </div>
