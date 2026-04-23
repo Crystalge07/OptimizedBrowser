@@ -973,6 +973,99 @@ body {
     #0a0a0c;
 }
 
+.newtab-google-topbar {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10000;
+}
+
+.newtab-google-topbar-link {
+  font-size: 13px;
+  color: #e8eaed;
+  text-decoration: none;
+  opacity: 0.9;
+}
+
+.newtab-google-topbar-link:hover {
+  text-decoration: underline;
+}
+
+.newtab-google-apps-trigger {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.newtab-google-apps-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.newtab-google-apps-grid-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #e8eaed;
+  justify-self: center;
+  align-self: center;
+}
+
+.newtab-google-apps-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 42px;
+  width: 220px;
+  padding: 10px;
+  background: #1f1f23;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.newtab-google-apps-item {
+  padding: 9px 10px;
+  border-radius: 9px;
+  color: #f4f4f5;
+  font-size: 13px;
+  text-decoration: none;
+  text-align: center;
+}
+
+.newtab-google-apps-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.newtab-google-profile-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #5f6368;
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.newtab-google-profile-btn:hover {
+  filter: brightness(1.08);
+}
+
 .newtab-form {
   width: 100%;
   max-width: 520px;

@@ -71,6 +71,8 @@ export default function App() {
     return 'recent_downloads';
   });
   const [secondColumnItems, setSecondColumnItems] = useState<SecondColumnItem[]>([]);
+  const [isAppsMenuOpen, setIsAppsMenuOpen] = useState(false);
+  const appsMenuRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryRef = useRef(query);
@@ -373,6 +375,17 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      if (!appsMenuRef.current) return;
+      if (!appsMenuRef.current.contains(e.target as Node)) {
+        setIsAppsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, []);
+
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -395,6 +408,48 @@ export default function App() {
 
   return (
     <div className="newtab-root">
+      <div className="newtab-google-topbar" ref={appsMenuRef}>
+        <a className="newtab-google-topbar-link" href="https://mail.google.com/">Gmail</a>
+        <a className="newtab-google-topbar-link" href="https://www.google.com/imghp">Images</a>
+        <button
+          type="button"
+          className="newtab-google-apps-trigger"
+          aria-label="Google apps"
+          aria-expanded={isAppsMenuOpen}
+          onClick={() => setIsAppsMenuOpen(v => !v)}
+        >
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+          <span className="newtab-google-apps-grid-dot" />
+        </button>
+        {isAppsMenuOpen && (
+          <div className="newtab-google-apps-menu" role="menu" aria-label="Google apps menu">
+            <a className="newtab-google-apps-item" href="https://drive.google.com/">Drive</a>
+            <a className="newtab-google-apps-item" href="https://docs.google.com/">Docs</a>
+            <a className="newtab-google-apps-item" href="https://sheets.google.com/">Sheets</a>
+            <a className="newtab-google-apps-item" href="https://slides.google.com/">Slides</a>
+            <a className="newtab-google-apps-item" href="https://calendar.google.com/">Calendar</a>
+            <a className="newtab-google-apps-item" href="https://photos.google.com/">Photos</a>
+            <a className="newtab-google-apps-item" href="https://maps.google.com/">Maps</a>
+            <a className="newtab-google-apps-item" href="https://www.youtube.com/">YouTube</a>
+          </div>
+        )}
+        <a
+          className="newtab-google-profile-btn"
+          href="https://myaccount.google.com/"
+          aria-label="Google Account"
+          title="Google Account"
+        >
+          G
+        </a>
+      </div>
+
       <form onSubmit={handleSubmit} className="newtab-form">
         <div className="newtab-input-wrap">
           {results.length > 0 && (
