@@ -535,11 +535,22 @@ body {
 }
 
 .stale-prompt-list__item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 2px 0;
+  cursor: pointer;
   color: #e2e8f0;
   font-size: 11px;
   line-height: 1.4;
   white-space: normal;
   word-break: break-word;
+}
+
+.stale-prompt-list__item:hover {
+  color: #f1f5f9;
+  text-decoration: underline;
 }
 
 .stale-prompt-card__actions {
@@ -565,14 +576,6 @@ body {
 
 .stale-prompt-btn--secondary:hover {
   background: rgba(100, 116, 139, 0.6);
-}
-
-.stale-prompt-btn--danger {
-  background: rgba(220, 38, 38, 0.5);
-}
-
-.stale-prompt-btn--danger:hover {
-  background: rgba(220, 38, 38, 0.7);
 }
 
 .tab-close {

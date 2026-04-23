@@ -1168,24 +1168,33 @@ export default function App() {
                               .slice(0, 2)
                               .map(tab => tab.title || tab.url || 'Untitled tab')
                               .join(', ');
-                            const allTitles = group.tabs
-                              .map(tab => tab.title || tab.url || 'Untitled tab');
                             const isExpanded = expandedStaleGroupKeys.has(group.key);
+                            const openTargetTab = group.tabs.reduce((best, tab) =>
+                              (tab.lastActiveAt ?? tab.lastAccessed ?? 0) > (best.lastActiveAt ?? best.lastAccessed ?? 0)
+                                ? tab
+                                : best
+                            , group.tabs[0]);
 
                             return (
                               <div key={group.key} className="stale-prompts-slide">
                                 <div
-                                  className={`stale-prompt-card${group.tabs.length > 1 ? ' stale-prompt-card--clickable' : ''}`}
-                                  role={group.tabs.length > 1 ? 'button' : undefined}
-                                  tabIndex={group.tabs.length > 1 ? 0 : undefined}
+                                  className="stale-prompt-card stale-prompt-card--clickable"
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={() => {
-                                    if (group.tabs.length <= 1) return;
+                                    if (group.tabs.length === 1) {
+                                      handleTabClick(openTargetTab);
+                                      return;
+                                    }
                                     handleToggleStaleGroupExpanded(group.key, !isExpanded);
                                   }}
                                   onKeyDown={(event) => {
-                                    if (group.tabs.length <= 1) return;
                                     if (event.key === 'Enter' || event.key === ' ') {
                                       event.preventDefault();
+                                      if (group.tabs.length === 1) {
+                                        handleTabClick(openTargetTab);
+                                        return;
+                                      }
                                       handleToggleStaleGroupExpanded(group.key, !isExpanded);
                                     }
                                   }}
@@ -1214,7 +1223,7 @@ export default function App() {
                                       </button>
                                       <button
                                         type="button"
-                                        className="stale-prompt-btn stale-prompt-btn--danger"
+                                        className="stale-prompt-btn stale-prompt-btn--secondary"
                                         onClick={(event) => {
                                           event.stopPropagation();
                                           handleCloseStaleGroup(group);
@@ -1228,11 +1237,24 @@ export default function App() {
                                   {group.tabs.length > 1 && (
                                     <div className="stale-prompt-list" hidden={!isExpanded}>
                                       <ul className="stale-prompt-list__items">
-                                        {allTitles.map((title, index) => (
-                                          <li key={`${group.key}-${index}`} className="stale-prompt-list__item" title={title}>
-                                            {title}
-                                          </li>
-                                        ))}
+                                        {group.tabs.map((tab, index) => {
+                                          const title = tab.title || tab.url || 'Untitled tab';
+                                          return (
+                                            <li key={`${group.key}-${index}`}>
+                                              <button
+                                                type="button"
+                                                className="stale-prompt-list__item"
+                                                title={title}
+                                                onClick={(event) => {
+                                                  event.stopPropagation();
+                                                  handleTabClick(tab);
+                                                }}
+                                              >
+                                                {title}
+                                              </button>
+                                            </li>
+                                          );
+                                        })}
                                       </ul>
                                     </div>
                                   )}
