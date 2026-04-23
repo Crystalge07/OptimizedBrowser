@@ -130,7 +130,6 @@ export default function App() {
           /* id "1" may not exist in some setups */
         }
       }
-      bms = bms.slice(0, BOTTOM_SECTION_ITEMS);
       setBottomBookmarks(bms);
     } catch (e) {
       console.error('[NewTab] Load bottom sections error:', e);
