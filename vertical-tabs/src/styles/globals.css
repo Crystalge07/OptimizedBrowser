@@ -150,7 +150,7 @@ body {
 
 .tab-item[data-active="true"] {
   background-color: #3c4043;
-  border-left-color: #8ab4f8;
+  border-left-color: #1e1f22;
 }
 
 /* Drag ghost - custom cursor-following preview during tab drag */
@@ -220,7 +220,7 @@ body {
 .tab-item-elongated[data-active="true"],
 .tab-item-single[data-active="true"] {
   border-left: none;
-  border-bottom: 2px solid #8ab4f8;
+  border-bottom: 2px solid #1e1f22;
 }
 
 .tab-icon {
@@ -660,7 +660,7 @@ body {
 
 .space-pill--all.active {
   background: #3c4043;
-  border-color: rgba(138, 180, 248, 0.6);
+  border-color: rgba(30, 31, 34, 0.9);
   box-shadow: none;
 }
 
@@ -675,7 +675,7 @@ body {
 
 .space-pill--space.active {
   background: #3c4043;
-  border-color: rgba(138, 180, 248, 0.6);
+  border-color: rgba(30, 31, 34, 0.9);
   box-shadow: none;
   transform: none;
 }
@@ -683,7 +683,7 @@ body {
 .space-pill--space.drag-over {
   opacity: 0.75;
   transform: scale(0.97);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 2px rgba(30, 31, 34, 0.75), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .space-pill__icon {

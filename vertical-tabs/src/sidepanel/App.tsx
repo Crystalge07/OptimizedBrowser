@@ -887,7 +887,12 @@ export default function App() {
           items.push({ kind: 'group', domain: key, tabs: domainTabs, sortKey, faviconUrl });
         }
       }
-      items.sort((a, b) => b.sortKey - a.sortKey);
+      items.sort((a, b) => {
+        if (a.kind !== b.kind) {
+          return a.kind === 'solo' ? -1 : 1;
+        }
+        return b.sortKey - a.sortKey;
+      });
       result[spaceId] = items;
     }
     return result;
@@ -1287,8 +1292,8 @@ export default function App() {
                         padding: '4px 8px',
                         justifyContent: 'flex-start',
                         alignItems: 'flex-end',
-                        backgroundColor: isDragOverPinned ? 'rgba(59, 130, 246, 0.1)' : undefined,
-                        border: isDragOverPinned ? '2px solid rgba(59, 130, 246, 0.5)' : '2px solid transparent',
+                        backgroundColor: isDragOverPinned ? 'rgba(30, 31, 34, 0.35)' : undefined,
+                        border: isDragOverPinned ? '2px solid rgba(30, 31, 34, 0.85)' : '2px solid transparent',
                         borderRadius: '8px',
                         transition: 'all 0.2s ease',
                         minHeight: '56px',
@@ -1327,8 +1332,8 @@ export default function App() {
                   )}
                   <div
                     style={{
-                      backgroundColor: isDragOverRegular ? 'rgba(59, 130, 246, 0.1)' : undefined,
-                      border: isDragOverRegular ? '2px solid rgba(59, 130, 246, 0.5)' : '2px solid transparent',
+                      backgroundColor: isDragOverRegular ? 'rgba(30, 31, 34, 0.35)' : undefined,
+                      border: isDragOverRegular ? '2px solid rgba(30, 31, 34, 0.85)' : '2px solid transparent',
                       borderRadius: '10px',
                       padding: '0 8px 8px',
                     }}
@@ -1376,7 +1381,7 @@ export default function App() {
                               fontWeight: 500,
                               letterSpacing: '0.02em',
                               textAlign: 'left',
-                              borderLeft: hasActiveTab ? '2px solid #8ab4f8' : '2px solid transparent',
+                              borderLeft: hasActiveTab ? '2px solid #1e1f22' : '2px solid transparent',
                             }}
                             onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#e8eaed'; }}
                             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#9aa0a6'; }}
